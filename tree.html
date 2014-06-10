@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+<meta charset="UTF-8">
+<title></title>
+<script type="text/javascript">
+//类别节点
+var nodeDom = function (text) {
+    //添加大类别 like control,event..
+    var area = document.createElement('div');
+    area.className = 'area-type';
+
+
+    //创建该类别下所有节点的容器
+    var leafColl = document.createElement('div');
+    leafColl.className = 'leaf-container';
+
+    var a = document.createElement('div');
+    a.className = 'node-dom';
+    a.setAttribute('data-type', text);
+    a.innerHTML = '<i class="icon expand"></i>' + text;
+    area.appendChild(a);
+    area.appendChild(leafColl);
+
+    return {
+        getItemC: function () {
+            return leafColl;
+        },
+        getDom: function () {
+            return area;
+        }
+    };
+};
+
+//子节点
+var leafDom = function (name, text, type) {
+
+    var a = document.createElement('div');
+    a.className = 'leaf-dom';
+    a.innerText = text;
+    a.id = name + '-' + Math.floor(Math.random() * 100000);
+    a.setAttribute('data-type', type);
+    a.setAttribute('data-name', name);
+
+    a.setAttribute('draggable', true);
+
+    return {
+        add: function (dom) {
+            a.appendChild(dom);
+            return this;
+        },
+        getDom: function () {
+            return  a;
+        }
+    }
+};
+
+//中间节点
+var middleDom = function (name, type) {
+    var a = document.createElement('div');
+    a.className = 'middle-dom';
+    a.innerHTML = '<i class="icon expand"></i>' + name;
+    a.setAttribute('data-type', type);
+    a.setAttribute('data-name', name);
+    return a;
+};
+
+//点击类别的时候
+var nodeFuc = function (dom) {
+    var el = dom.querySelector('i'),
+            cls = el.className;
+    if (cls.indexOf('collapse') != -1) {
+        el.className = cls.replace('collapse', 'expand');
+        dom.parentNode.querySelector('.leaf-container').style.display = 'block';
+
+    } else {
+        el.className = cls.replace('expand', 'collapse');
+        dom.parentNode.querySelector('.leaf-container').style.display = 'none';
+    }
+
+};
+
+//拖拽具体组建的时候
+var leafFunc = function (e) {
+    if (this.dragStart) {
+        this.dragStart(e);
+    }
+
+}
+
+//添加菜单
+var addMenu = function (e) {
+//        this is a tree object
+    var me = this;
+    var position = {
+        x: e.x,
+        y: e.y
+    }
+    var parent = e.target;
+    var parentType = parent.dataset['type'];
+    var el = document.querySelector('.menu');
+    if (!el) {
+        var dom = document.createElement('ul');
+        var s = dom.style;
+        dom.className = 'menu';
+        s.position = 'absolute';
+        s.top = position.y + 'px';
+        s.left = position.x + 'px';
+        s.zIndex = 999;
+        s.background = 'blue';
+        s.color = 'white';
+        dom.innerHTML = '<li data-type="folder">add folder</li>' +
+                '<li data-type="js">add js</li>' +
+                '<li data-type="css">add css</li>' +
+                '<li data-type="html">add html</li>' +
+                '<li data-type="json">add json</li>';
+        dom.addEventListener('click', function (eve) {
+            var text = Math.floor(Math.random() * 100);
+            var target = eve.target,
+                    type = target.dataset['type'];
+            var html = '';
+            var data = {};
+            if (type == 'folder') {
+                html = nodeDom('folder' + text).getDom();
+                data.parent = parentType;
+                data.node = 'folder' + text;
+                data.type = 'folder';
+            } else {
+                html = leafDom(text + '.' + type, text + '.' + type, parentType).getDom();
+                data.parent = parentType;
+                data.name = text + '.' + type;
+                data.text = text + '.' + type;
+                data.type = 'file';
+            }
+            parent.parentNode.querySelector('.leaf-container').appendChild(html);
+            document.body.removeChild(dom);
+            me.addData(me.data, data);
+        }, true);
+
+        document.body.appendChild(dom);
+        dom.onmouseleave = function () {
+            dom.style.display = 'none';
+        }
+
+    }
+
+}
+
+//右键事件
+var addMenuEvent = function (e) {
+    //  this is a tree object
+    e.preventDefault();
+    if (e.target.className.indexOf('node-dom') != -1 || e.target.className.indexOf('middle-dom') != -1) {
+        addMenu.call(this, e);
+    }
+
+}
+
+var addEvent = function () {
+    var me = this;
+    this.el.onclick = function (e) {
+        if (e.button == '2') {//右键
+
+        } else {//左键单击
+            var cls = e.target.className;
+            if (cls) {
+                if (cls == 'node-dom') {
+                    nodeFuc(e.target);
+                }
+            }
+        }
+    }
+
+    this.el.ondragstart = function (e) {
+        var cls = e.target.className;
+        if (cls) {
+            if (cls == 'leaf-dom') {
+                leafFunc.call(me, e);
+            }
+        }
+    }
+    this.el.addEventListener('contextmenu', function (e) {
+        addMenuEvent.call(me, e);
+    }, false);
+}
+
+
+//创建输入框
+var createInput = function (id) {
+    var i = document.createElement('input');
+    i.type = 'text';
+    i.className = 'in_val ' + id;
+    return i;
+}
+
+//递归渲染元素
+function digui(parent, items, type) {
+    Array.prototype.forEach.call(items, function (leaf) {
+        if (!leaf.items) {
+            var el = leafDom(leaf.name, leaf.text, type).getDom();
+            parent.appendChild(el);
+        } else {
+            var node = nodeDom(leaf.node),
+                    dom = node.getDom();
+            parent.appendChild(dom);
+            digui(node.getItemC(), leaf.items, leaf.node);
+        }
+    });
+}
+
+//构造函数
+window.tree = function (cfg) {
+    var c = document.createElement('div');
+    c.className = 'j-tree';
+    this.data = cfg.data || data;
+    this.el = c;
+    this.leafClick = cfg.leafClick || null;
+    for (var i in cfg) {
+        this[i] = cfg[i];
+    }
+}
+
+//增加原型方法
+tree.prototype = {
+    render: function (data) {
+        this.data = data || this.data;
+        var me = this, el = [];
+        Array.prototype.forEach.call(data || this.data, function (item, index) {
+
+            //一个类别下得节点
+            var node = nodeDom(item.node),
+                    area = node.getDom(),
+            //一个类别下面所有的子节点
+                    leafColl = node.getItemC();
+
+            //遍历所有节点,并添加到 leafColl 上
+            digui(leafColl, item.items, item.node);
+
+            me.el.appendChild(area);
+        });
+        addEvent.call(this);
+        return this.el;
+    },
+    addData: function (target, data) {
+        var me = this;
+        for (var i = 0, len = target.length; i < len; i++) {
+            if (target[i].node == data.parent) {
+                if (data.type == 'folder') {
+                    target[i].items.push({
+                        node: data.node,
+                        items: []
+                    })
+                } else {
+                    target[i].items.push({
+                        name: data.name,
+                        text: data.text
+                    })
+                }
+            } else {
+                if (target[i].node) {
+                    me.addData(target[i].items, data);
+                }
+            }
+
+
+        }
+
+
+    }
+}
+
+</script>
+<link href="tree.css" rel="stylesheet">
+</head>
+<body>
+
+
+<script>
+    var data = [
+        {
+            node: 'control',
+            items: [
+                {
+                    name: 'list',
+                    text: 'list1'
+                },
+                {
+                    name: 'list2',
+                    text: 'list2'
+                },
+                {
+                    name: 'list3',
+                    text: 'list3'
+                },
+                {
+                    name: 'list4',
+                    text: 'list4'
+                },
+                {
+                    node: 'aaa',
+                    items: [
+                        {
+                            name: '222',
+                            text: 'asdasd'
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            node: 'control1',
+            items: [
+                {
+                    name: 'list1',
+                    text: 'list1'
+                },
+                {
+                    name: 'list2',
+                    text: 'list2'
+                },
+                {
+                    name: 'list3',
+                    text: 'list3'
+                },
+                {
+                    name: 'list4',
+                    text: 'list4'
+                }
+            ]
+        }
+
+    ]
+    var t = new tree({data: data});
+    document.body.appendChild(t.render());
+
+</script>
+</body>
+</html>
